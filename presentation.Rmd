@@ -1,0 +1,175 @@
+---
+title: "How to grow a tree?"
+subtitle: "Decision trees"
+author: "Michał Burdukiewicz"
+date: "03-06-2022"
+output: 
+  ioslides_presentation:
+    theme: "simplex"
+---
+
+<link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet">
+
+<style>
+slides > slide {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+
+}
+
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Modelling
+
+
+A modelling algorithm finds a relationship between response variable and input variable.
+
+Questions: can we use number of active days on wikipedia and number of pages created to guess the gender of Wikipedia registered users?
+
+Source: Minguillón, J., Meneses, J., Aibar, E., Ferran-Ferrer, N., and Fàbregues, S. (2021). Exploring the gender gap in the Spanish Wikipedia: Differences in engagement and editing practices. PLOS ONE 16, e0246702. https://doi.org/10.1371/journal.pone.0246702.
+
+## Available data
+
+C_api: gender (male, female, unknown)
+
+pagesWomen: number of edits in pages related to women
+
+NEds: total number of editions
+
+## Basic terms
+
+$y$: response variables.
+
+$X$: input variable with $n$ features.
+
+$$y \sim X$$
+
+$$ y = \beta_1 x_1 + \dots + \beta_i x_i + \dots + \beta_n x_n $$
+
+
+## Available data
+
+```{r,echo=FALSE,message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(parttree)
+library(rpart.plot)
+theme_set(theme_bw())
+
+
+dat <- read.csv("./data.csv") %>% 
+  mutate(C_api = factor(C_api))
+
+set.seed(15390)
+
+sampled_dat <- rbind(filter(dat, C_api == "female"),
+                     filter(dat, C_api == "male") %>% 
+                       slice(sample(x = which(dat[["C_api"]] == "male"), 
+                                    size = 2*sum(dat[["C_api"]] == "female")))) %>% 
+  mutate(C_api = factor(C_api))
+
+select(sampled_dat, C_api, NEds, pagesWomen) %>% 
+  head() %>% 
+  knitr::kable()
+
+```
+
+
+## Available data
+
+```{r,echo=FALSE,message=FALSE}
+
+ggplot(sampled_dat, aes(x = NEds, y = pagesWomen, color = C_api)) +
+  geom_point() + 
+  facet_wrap(~ C_api)
+
+```
+
+## Without faceting
+
+```{r,echo=FALSE,message=FALSE}
+
+ggplot(sampled_dat, aes(x = NEds, y = pagesWomen, color = C_api)) +
+  geom_point() 
+
+```
+
+## Partitioning
+
+Can we divide data into a subsets based on the value of NEds and pagesWomen to distinguish between male and female?
+
+
+## Partitioning
+
+```{r,echo=FALSE,message=FALSE}
+
+wiki_tree  <- rpart(C_api ~ NEds + pagesWomen, data = sampled_dat, model = TRUE)
+
+ggplot(sampled_dat, aes(x = NEds, y = pagesWomen, color = C_api)) +
+  geom_point() +
+  geom_parttree(data = wiki_tree, aes(fill = C_api), alpha = 0.1) +
+  theme_minimal()
+
+```
+
+## Partitioning
+
+Cen we represent the partition in a simpler way?
+
+```{r,echo=FALSE,message=FALSE}
+
+rpart.plot(wiki_tree)
+
+```
+
+
+## How to grow it?
+
+$$ y = \beta_1 x_1 + \dots + \beta_i x_i + \dots + \beta_n x_n $$
+
+$M$: number of regions
+
+## How to grow it?
+
+```{r,echo=FALSE,message=FALSE}
+
+ggplot(sampled_dat, aes(x = NEds, y = pagesWomen, color = C_api)) +
+  geom_point() +
+  geom_parttree(data = wiki_tree, aes(fill = C_api), alpha = 0.1) +
+  theme_minimal()
+
+```
+
+## How to grow it?
+
+$$ y = \beta_1 x_1 + \dots + \beta_i x_i + \dots + \beta_n x_n $$
+
+$M$: number of regions
+
+$$ y = \sum^{M}_{m = 1} c_m \left(x \in R_M \right) $$
+
+
+$$ \hat c_m = \textrm{ave} \left(y_i | x_i \in R_M \right) $$ 
+
+
+## How to grow it?
+
+Next steps:
+
+ - greedy algorithm for finding optimal splits
+ - pruning (collapsing nodes, where their bring very little to the fit)
+
+## Reading more:
+
+Section 9.2, Elements of statistical learning (https://hastie.su.domains/Papers/ESLII.pdf)
